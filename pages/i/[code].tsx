@@ -154,9 +154,9 @@ function ErrorView({ reason }: { reason: string }) {
       <div style={s.iconLg}>🔗</div>
       <h1 style={s.h1}>{m.title}</h1>
       <p style={s.body}>{m.body}</p>
-      <div style={s.ctaQuiet}>
-        <p style={s.quietCaption}>Get Momento on iPhone</p>
-        <AppStoreBadge width={220} />
+      <div style={s.heroCta}>
+        <AppStoreBadge width={240} />
+        <p style={s.heroCaption}>Get Momento on iPhone.</p>
       </div>
     </div>
   );
@@ -183,22 +183,29 @@ function ReadyView({ info, code, ios, guestLoading, onContinueAsGuest }: {
         {isGallery ? `${owner} wants you to add your photos` : 'where your friend group’s memories actually live'}
       </p>
 
-      <div style={s.btnStack}>
-        {ios && (<a href={`momento://invite/${code}`} style={s.primaryBtn}>Open in Momento</a>)}
-        {isGallery && (
-          <button type="button" onClick={onContinueAsGuest} disabled={guestLoading}
-            style={{ ...s.secondaryBtn, opacity: guestLoading ? 0.6 : 1 }}>
-            {guestLoading ? 'One sec…' : 'Continue as guest'}
-          </button>
-        )}
+      {/* HERO: download the app — the primary action */}
+      <div style={s.heroCta}>
+        <AppStoreBadge width={240} />
+        <p style={s.heroCaption}>
+          {isGallery
+            ? 'Join the gallery, react, and keep these memories forever.'
+            : 'The place your friend group’s memories actually live.'}
+        </p>
       </div>
 
-      <div style={s.ctaQuiet}>
-        <p style={s.quietCaption}>
-          {isGallery ? 'Or get the app to join, react, and keep these forever' : 'Get Momento on iPhone'}
-        </p>
-        <AppStoreBadge width={220} />
-        {!ios && (<p style={s.androidNote}>Momento is on iPhone for now — guest upload works on any phone.</p>)}
+      {/* SECONDARY: lighter options below */}
+      <div style={s.secondaryStack}>
+        {ios && (
+          <a href={`momento://invite/${code}`} style={s.textLink}>Already have Momento? Open the app</a>
+        )}
+        {isGallery && (
+          <button type="button" onClick={onContinueAsGuest} disabled={guestLoading} style={s.guestLink}>
+            {guestLoading ? 'One sec…' : 'Not now — continue as guest'}
+          </button>
+        )}
+        {!ios && (
+          <p style={s.androidNote}>Momento is on iPhone for now — guest upload works on any phone.</p>
+        )}
       </div>
     </div>
   );
@@ -233,25 +240,22 @@ const s: Record<string, React.CSSProperties> = {
   iconLg: { fontSize: 52, marginBottom: 10 },
   h1: { fontSize: 26, fontWeight: 700, margin: 0, color: COLORS.ink },
   body: { fontSize: 15, color: COLORS.textMuted, maxWidth: 340, lineHeight: 1.5, margin: '12px 0 0' },
-  textLink: { fontSize: 14, color: COLORS.coral, textDecoration: 'underline', marginTop: 16 },
-  btnStack: { width: '100%', maxWidth: 320, display: 'flex', flexDirection: 'column', gap: 10, marginTop: 28 },
-  primaryBtn: {
-    display: 'block', width: '100%', padding: '17px', textAlign: 'center', boxSizing: 'border-box',
-    fontSize: 16, fontWeight: 600, background: COLORS.coral, color: '#fff',
-    borderRadius: 14, textDecoration: 'none', border: 'none', cursor: 'pointer',
-    boxShadow: '0 2px 10px rgba(255,107,92,0.32)',
-  },
-  secondaryBtn: {
-    display: 'block', width: '100%', padding: '16px', textAlign: 'center', boxSizing: 'border-box',
-    fontSize: 15, fontWeight: 600, background: '#fff', color: COLORS.ink,
-    borderRadius: 14, border: `1.5px solid ${COLORS.hairline}`, cursor: 'pointer',
-  },
-  ctaQuiet: {
-    width: '100%', maxWidth: 320, marginTop: 32, paddingTop: 28,
-    borderTop: `1px solid ${COLORS.hairline}`,
+  textLink: { fontSize: 15, color: COLORS.coral, textDecoration: 'none', fontWeight: 500, background: 'none', border: 'none', cursor: 'pointer', padding: 0 },
+  heroCta: {
+    width: '100%', maxWidth: 320, marginTop: 28,
     display: 'flex', flexDirection: 'column', alignItems: 'center',
   },
-  quietCaption: { margin: '0 0 14px', fontSize: 13, color: COLORS.textMuted, lineHeight: 1.4, maxWidth: 280 },
+  heroCaption: { margin: '14px 0 0', fontSize: 14, color: COLORS.textMuted, lineHeight: 1.5, maxWidth: 300 },
+  secondaryStack: {
+    width: '100%', maxWidth: 320, marginTop: 24, paddingTop: 22,
+    borderTop: `1px solid ${COLORS.hairline}`,
+    display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 14,
+  },
+  guestLink: {
+    fontSize: 15, color: COLORS.textMuted, fontWeight: 500,
+    background: 'none', border: 'none', cursor: 'pointer', padding: 0,
+    textDecoration: 'underline', textUnderlineOffset: 3,
+  },
   androidNote: { margin: '14px 0 0', fontSize: 12, color: COLORS.textSubtle, lineHeight: 1.4, maxWidth: 280 },
   spinner: {
     width: 32, height: 32, border: `3px solid ${COLORS.hairline}`, borderTopColor: COLORS.coral,

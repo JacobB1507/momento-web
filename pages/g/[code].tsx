@@ -248,7 +248,7 @@ export default function GuestUploadPage() {
             Add more photos
           </button>
         </div>
-        <BigAppStoreCTA caption="Want the full Momento experience? Get the app." />
+        <BigAppStoreCTA caption="Make an account and join your friends on the fun." />
       </Shell>
     );
   }
@@ -289,7 +289,7 @@ export default function GuestUploadPage() {
           autoCapitalize="words"
         />
         <p style={s.fieldHint}>
-          The gallery owner will see your photos labeled as &ldquo;{guestName.trim() || 'Guest'} (guest).&rdquo;
+          The gallery owner will see your photos labeled as &ldquo;Guest (your guest name).&rdquo;
         </p>
       </div>
 
@@ -724,6 +724,6 @@ const s: Record<string, React.CSSProperties> = {
     cursor: 'pointer',
   },
   h1: { fontSize: 28, fontWeight: 700, margin: 0, color: COLORS.ink },
-  body: { fontSize: 16, color: '#555', maxWidth: 380, lineHeight: 1.5, margin: '12px 0 24px' },
+  body: { fontSize: 16, color: '#555', maxWidth: 380, lineHeight: 1.5, margin: '12px auto 24px' },
   iconLg: { fontSize: 56, marginBottom: 12 },
 };
