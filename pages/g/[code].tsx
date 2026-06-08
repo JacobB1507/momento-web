@@ -43,6 +43,7 @@ const REASON_MESSAGES: Record<string, { title: string; body: string }> = {
 export default function GuestUploadPage() {
   const router = useRouter();
   const code = (router.query.code as string | undefined)?.toUpperCase();
+  const fromInvite = router.query.from === 'invite';
 
   const [linkInfo, setLinkInfo] = useState<LinkInfo | null>(null);
   const [loading, setLoading] = useState(true);
@@ -263,10 +264,12 @@ export default function GuestUploadPage() {
         <meta name="description" content={`Add your photos to ${linkInfo.gallery_name} on Momento.`} />
         <meta property="og:title" content={`📷 Upload to ${linkInfo.gallery_name}`} />
         <meta property="og:description" content={`${ownerLabel} invited you to add your photos.`} />
+        <meta property="og:image" content="https://momento-web-zeta.vercel.app/og.png" />
+        <meta name="twitter:card" content="summary_large_image" />
       </Head>
 
       <div style={s.headerBlock}>
-        <p style={s.eyebrow}>You're invited to upload photos to</p>
+        <p style={s.eyebrow}>{fromInvite ? "Add your photos to" : "You're invited to upload photos to"}</p>
         <h1 style={s.galleryTitle}>{linkInfo.gallery_name}</h1>
         <p style={s.subtle}>by {ownerLabel}</p>
       </div>

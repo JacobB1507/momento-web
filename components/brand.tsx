@@ -15,9 +15,9 @@ export const COLORS = {
   appStoreBlack: '#000000',
 };
 
-// Update this to the real App Store URL once the app is live there.
-// Until then, link to TestFlight or your landing page.
-export const APP_STORE_URL = 'https://apps.apple.com/app/momento';
+// Real App Store listing for Momento (App ID 6768451189).
+// Apple resolves /app/id<ID> to the full localized listing automatically.
+export const APP_STORE_URL = 'https://apps.apple.com/app/id6768451189';
 
 // === Momento wordmark ===
 // Uses a coral M monogram circle + the word "Momento". Lightweight inline SVG.
