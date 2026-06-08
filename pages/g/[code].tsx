@@ -289,7 +289,7 @@ export default function GuestUploadPage() {
           autoCapitalize="words"
         />
         <p style={s.fieldHint}>
-          The gallery owner will see your photos labeled as &ldquo;Guest (your guest name).&rdquo;
+          The gallery owner will see your photos labeled as &ldquo; (your guest name) - Guest.&rdquo;
         </p>
       </div>
 
