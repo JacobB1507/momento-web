@@ -48,23 +48,17 @@ export function MomentoWordmark({ size = 48, color = COLORS.coral }: { size?: nu
   );
 }
 
-// Stand-alone monogram (the M-in-a-circle) for places where we want a compact mark
-export function MomentoMark({ size = 32, color = COLORS.coral }: { size?: number; color?: string }) {
+// Stand-alone logo mark (the real Momento app icon) for compact placements.
+export function MomentoMark({ size = 32 }: { size?: number; color?: string }) {
   return (
-    <svg
+    // eslint-disable-next-line @next/next/no-img-element
+    <img
+      src="/logo.png"
+      alt="Momento"
       width={size}
       height={size}
-      viewBox="0 0 64 64"
-      fill="none"
-      xmlns="http://www.w3.org/2000/svg"
-      aria-label="Momento"
-    >
-      <circle cx="32" cy="32" r="32" fill={color} />
-      <path
-        d="M16 46 V18 H21 L32 36 L43 18 H48 V46 H43 V27 L34 41 H30 L21 27 V46 Z"
-        fill="white"
-      />
-    </svg>
+      style={{ width: size, height: size, display: 'block', objectFit: 'contain' }}
+    />
   );
 }
 
