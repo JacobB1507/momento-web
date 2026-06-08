@@ -4,16 +4,6 @@ import Head from 'next/head';
 import { supabase } from '../../lib/supabaseClient';
 import { AppStoreBadge, MomentoMark, COLORS } from '../../components/brand';
 
-/**
- * Invite landing page: https://momento-web-zeta.vercel.app/i/{code}
- *
- *  - iOS + app installed -> hand off to the app via momento://invite/{code}.
- *  - iOS no app / Android / desktop -> show "join [Gallery]" with Download +
- *    (if the gallery has an active guest link) "Add photos as a guest".
- *
- * The app's internal deep-link handler still parses momento://invite/{code}, unchanged.
- */
-
 interface InviteInfo {
   is_valid: boolean;
   reason: string;
@@ -51,9 +41,9 @@ export default function InvitePage() {
   const [info, setInfo] = useState<InviteInfo | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [guestLoading, setGuestLoading] = useState(false);
   const handoffTried = useRef(false);
 
-  // iOS app hand-off (fires once).
   useEffect(() => {
     if (!router.isReady || !code || handoffTried.current) return;
     handoffTried.current = true;
@@ -65,7 +55,6 @@ export default function InvitePage() {
     }
   }, [router.isReady, code]);
 
-  // Load invite info for fallback UI.
   useEffect(() => {
     if (!router.isReady || !code) return;
     let cancelled = false;
@@ -77,12 +66,8 @@ export default function InvitePage() {
         if (cancelled) return;
         if (error) { setLoadError('network'); setLoading(false); return; }
         const row: InviteInfo = Array.isArray(data) ? data[0] : data;
-        if (!row || !row.is_valid) {
-          setInfo(row || null);
-          setLoadError(row?.reason || 'not_found');
-        } else {
-          setInfo(row);
-        }
+        if (!row || !row.is_valid) { setInfo(row || null); setLoadError(row?.reason || 'not_found'); }
+        else { setInfo(row); }
         setLoading(false);
       } catch {
         if (!cancelled) { setLoadError('network'); setLoading(false); }
@@ -90,6 +75,25 @@ export default function InvitePage() {
     })();
     return () => { cancelled = true; };
   }, [router.isReady, code]);
+
+  const handleContinueAsGuest = async () => {
+    if (guestLoading) return;
+    setGuestLoading(true);
+    try {
+      const { data, error } = await supabase.rpc('get_or_mint_guest_code_for_invite', { p_invite_code: code });
+      const row = Array.isArray(data) ? data[0] : data;
+      const guestCode: string | null = row?.guest_code ?? null;
+      if (error || !guestCode) {
+        setGuestLoading(false);
+        alert('Guest uploads aren’t available for this gallery. Download Momento to join.');
+        return;
+      }
+      window.location.href = `/g/${guestCode}?from=invite`;
+    } catch {
+      setGuestLoading(false);
+      alert('Couldn’t start guest upload. Try again.');
+    }
+  };
 
   const ios = typeof window !== 'undefined' ? isIOS() : true;
 
@@ -99,10 +103,7 @@ export default function InvitePage() {
         <title>You&apos;re invited · Momento</title>
         <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
         <meta property="og:title" content={info?.gallery_name ? `You're invited to ${info.gallery_name}` : "You're invited to Momento"} />
-        <meta
-          property="og:description"
-          content="Join the gallery and add your photos — the place your friend group's memories actually live."
-        />
+        <meta property="og:description" content="Join the gallery and add your photos." />
         <meta property="og:type" content="website" />
         <meta property="og:image" content="https://momento-web-zeta.vercel.app/og.png" />
         <meta name="twitter:card" content="summary_large_image" />
@@ -115,7 +116,7 @@ export default function InvitePage() {
         ) : loadError ? (
           <ErrorView reason={loadError} />
         ) : info ? (
-          <ReadyView info={info} code={code} ios={ios} />
+          <ReadyView info={info} code={code} ios={ios} guestLoading={guestLoading} onContinueAsGuest={handleContinueAsGuest} />
         ) : (
           <ErrorView reason="not_found" />
         )}
@@ -149,137 +150,111 @@ function LoadingView({ ios, code }: { ios: boolean; code: string }) {
 function ErrorView({ reason }: { reason: string }) {
   const m = REASON_MESSAGES[reason] || REASON_MESSAGES.not_found;
   return (
-    <>
-      <div style={s.centerBlock}>
-        <div style={s.iconLg}>🔗</div>
-        <h1 style={s.h1}>{m.title}</h1>
-        <p style={s.body}>{m.body}</p>
+    <div style={s.centerBlock}>
+      <div style={s.iconLg}>🔗</div>
+      <h1 style={s.h1}>{m.title}</h1>
+      <p style={s.body}>{m.body}</p>
+      <div style={s.ctaQuiet}>
+        <p style={s.quietCaption}>Get Momento on iPhone</p>
+        <AppStoreBadge width={220} />
       </div>
-      <BigAppStoreCTA caption="Get Momento on iPhone" />
-    </>
+    </div>
   );
 }
 
-function ReadyView({ info, code, ios }: { info: InviteInfo; code: string; ios: boolean }) {
+function ReadyView({ info, code, ios, guestLoading, onContinueAsGuest }: {
+  info: InviteInfo; code: string; ios: boolean; guestLoading: boolean; onContinueAsGuest: () => void;
+}) {
   const isGallery = info.kind === 'gallery' && !!info.gallery_name;
   const owner = info.owner_display_name || (info.owner_username ? `@${info.owner_username}` : 'A friend');
-  const guestCode = info.guest_code;
-
-  // Pass origin context to the guest page so it knows the user came from an invite.
-  const guestHref = guestCode
-    ? `/g/${guestCode}?from=invite`
-    : null;
 
   return (
-    <>
-      <div style={s.headerBlock}>
-        {info.cover_photo_url ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img src={info.cover_photo_url} alt="" style={s.cover} />
-        ) : (
-          <div style={s.coverFallback}>📸</div>
+    <div style={s.centerBlock}>
+      {info.cover_photo_url ? (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img src={info.cover_photo_url} alt="" style={s.cover} />
+      ) : (
+        <div style={s.coverFallback}><MomentoMark size={44} /></div>
+      )}
+
+      <p style={s.eyebrow}>{isGallery ? "You're invited to" : 'Join Momento'}</p>
+      <h1 style={s.galleryTitle}>{isGallery ? info.gallery_name : `${owner} invited you`}</h1>
+      <p style={s.subtle}>
+        {isGallery ? `${owner} wants you to add your photos` : 'where your friend group’s memories actually live'}
+      </p>
+
+      <div style={s.btnStack}>
+        {ios && (<a href={`momento://invite/${code}`} style={s.primaryBtn}>Open in Momento</a>)}
+        {isGallery && (
+          <button type="button" onClick={onContinueAsGuest} disabled={guestLoading}
+            style={{ ...s.secondaryBtn, opacity: guestLoading ? 0.6 : 1 }}>
+            {guestLoading ? 'One sec…' : 'Continue as guest'}
+          </button>
         )}
-        <p style={s.eyebrow}>{isGallery ? "You're invited to" : 'Join Momento'}</p>
-        <h1 style={s.galleryTitle}>
-          {isGallery ? info.gallery_name : `${owner} invited you`}
-        </h1>
-        <p style={s.subtle}>
-          {isGallery ? `by ${owner}` : 'the place your friend group’s memories actually live'}
-        </p>
       </div>
 
-      {ios && (
-        <a href={`momento://invite/${code}`} style={s.primaryBtn}>Open in Momento</a>
-      )}
-
-      {isGallery && guestHref ? (
-        <a href={guestHref} style={s.secondaryBtn}>Add photos as a guest</a>
-      ) : null}
-
-      <BigAppStoreCTA
-        caption={isGallery
-          ? 'Download Momento to join, react, and keep these forever'
-          : 'Download Momento to get started'}
-        androidNote={!ios}
-        guestAvailable={!!guestHref}
-      />
-    </>
-  );
-}
-
-function BigAppStoreCTA({
-  caption,
-  androidNote,
-  guestAvailable,
-}: { caption: string; androidNote?: boolean; guestAvailable?: boolean }) {
-  return (
-    <div style={s.appStoreCTABlock}>
-      <p style={s.appStoreCaption}>{caption}</p>
-      <AppStoreBadge width={240} />
-      <p style={s.appStoreSubcap}>
-        Create your own galleries, save the memories you&apos;re already a part of, and meet up with friends.
-      </p>
-      {androidNote && (
-        <p style={s.androidNote}>
-          Momento is on iPhone for now.{guestAvailable ? ' You can still add photos as a guest above.' : ''}
+      <div style={s.ctaQuiet}>
+        <p style={s.quietCaption}>
+          {isGallery ? 'Or get the app to join, react, and keep these forever' : 'Get Momento on iPhone'}
         </p>
-      )}
+        <AppStoreBadge width={220} />
+        {!ios && (<p style={s.androidNote}>Momento is on iPhone for now — guest upload works on any phone.</p>)}
+      </div>
     </div>
   );
 }
 
 function Spinner() {
-  return (
-    <div style={s.spinner}>
-      <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
-    </div>
-  );
+  return (<div style={s.spinner}><style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style></div>);
 }
 
 const s: Record<string, React.CSSProperties> = {
   topBar: {
     position: 'sticky', top: 0, zIndex: 10,
-    display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-    padding: '12px 20px',
+    display: 'flex', alignItems: 'center', padding: '12px 20px',
     background: 'rgba(250, 250, 250, 0.94)',
     backdropFilter: 'blur(8px)', WebkitBackdropFilter: 'blur(8px)',
     borderBottom: `1px solid ${COLORS.hairline}`,
   },
   main: {
-    maxWidth: 540, margin: '0 auto', padding: '24px 20px 56px',
-    display: 'flex', flexDirection: 'column', gap: 16,
+    maxWidth: 440, margin: '0 auto', padding: '40px 24px 56px',
     fontFamily: '-apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Roboto, Helvetica, Arial, sans-serif',
   },
-  centerBlock: { textAlign: 'center', paddingTop: 24, display: 'flex', flexDirection: 'column', alignItems: 'center' },
-  headerBlock: { textAlign: 'center', paddingTop: 8, paddingBottom: 8, display: 'flex', flexDirection: 'column', alignItems: 'center' },
-  cover: { width: 96, height: 96, borderRadius: 16, objectFit: 'cover', marginBottom: 16 },
+  centerBlock: { display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center' },
+  cover: { width: 88, height: 88, borderRadius: 20, objectFit: 'cover', marginBottom: 20 },
   coverFallback: {
-    width: 96, height: 96, borderRadius: 16, background: COLORS.coralLight,
-    display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 40, marginBottom: 16,
+    width: 88, height: 88, borderRadius: 20, background: '#fff',
+    border: `1px solid ${COLORS.hairline}`,
+    display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 20,
   },
-  eyebrow: { margin: 0, fontSize: 13, color: COLORS.textSubtle, textTransform: 'uppercase', letterSpacing: 0.5 },
-  galleryTitle: { margin: '8px 0 4px', fontSize: 32, fontWeight: 700, lineHeight: 1.2, color: COLORS.ink },
-  subtle: { margin: 0, fontSize: 14, color: COLORS.textMuted, maxWidth: 360 },
-  iconLg: { fontSize: 56, marginBottom: 12 },
-  h1: { fontSize: 28, fontWeight: 700, margin: 0, color: COLORS.ink },
-  body: { fontSize: 16, color: '#555', maxWidth: 380, lineHeight: 1.5, margin: '12px 0 24px' },
-  textLink: { fontSize: 14, color: COLORS.coral, textDecoration: 'underline' },
+  eyebrow: { margin: 0, fontSize: 13, color: COLORS.textSubtle, textTransform: 'uppercase', letterSpacing: 0.6 },
+  galleryTitle: { margin: '8px 0 6px', fontSize: 30, fontWeight: 700, lineHeight: 1.2, color: COLORS.ink },
+  subtle: { margin: 0, fontSize: 15, color: COLORS.textMuted, maxWidth: 340, lineHeight: 1.5 },
+  iconLg: { fontSize: 52, marginBottom: 10 },
+  h1: { fontSize: 26, fontWeight: 700, margin: 0, color: COLORS.ink },
+  body: { fontSize: 15, color: COLORS.textMuted, maxWidth: 340, lineHeight: 1.5, margin: '12px 0 0' },
+  textLink: { fontSize: 14, color: COLORS.coral, textDecoration: 'underline', marginTop: 16 },
+  btnStack: { width: '100%', maxWidth: 320, display: 'flex', flexDirection: 'column', gap: 10, marginTop: 28 },
   primaryBtn: {
-    display: 'block', width: '100%', padding: '18px', textAlign: 'center',
-    fontSize: 17, fontWeight: 600, background: COLORS.coral, color: '#fff',
-    borderRadius: 14, textDecoration: 'none', boxShadow: '0 2px 8px rgba(255,107,92,0.35)',
+    display: 'block', width: '100%', padding: '17px', textAlign: 'center', boxSizing: 'border-box',
+    fontSize: 16, fontWeight: 600, background: COLORS.coral, color: '#fff',
+    borderRadius: 14, textDecoration: 'none', border: 'none', cursor: 'pointer',
+    boxShadow: '0 2px 10px rgba(255,107,92,0.32)',
   },
   secondaryBtn: {
-    display: 'block', width: '100%', padding: '16px', textAlign: 'center',
-    fontSize: 16, fontWeight: 600, background: '#f0f0f0', color: COLORS.ink,
-    borderRadius: 12, textDecoration: 'none', border: 'none',
+    display: 'block', width: '100%', padding: '16px', textAlign: 'center', boxSizing: 'border-box',
+    fontSize: 15, fontWeight: 600, background: '#fff', color: COLORS.ink,
+    borderRadius: 14, border: `1.5px solid ${COLORS.hairline}`, cursor: 'pointer',
   },
-  appStoreCTABlock: { marginTop: 16, padding: '24px 20px', background: COLORS.coralLight, borderRadius: 14, textAlign: 'center' },
-  appStoreCaption: { margin: 0, marginBottom: 12, fontSize: 15, fontWeight: 600, color: COLORS.ink },
-  appStoreSubcap: { margin: '12px 0 0', fontSize: 13, color: COLORS.textMuted, lineHeight: 1.4 },
-  androidNote: { margin: '12px 0 0', fontSize: 12, color: COLORS.textSubtle, lineHeight: 1.4 },
+  ctaQuiet: {
+    width: '100%', maxWidth: 320, marginTop: 32, paddingTop: 28,
+    borderTop: `1px solid ${COLORS.hairline}`,
+    display: 'flex', flexDirection: 'column', alignItems: 'center',
+  },
+  quietCaption: { margin: '0 0 14px', fontSize: 13, color: COLORS.textMuted, lineHeight: 1.4, maxWidth: 280 },
+  androidNote: { margin: '14px 0 0', fontSize: 12, color: COLORS.textSubtle, lineHeight: 1.4, maxWidth: 280 },
   spinner: {
-    width: 32, height: 32, border: `3px solid #e5e5e5`, borderTopColor: COLORS.coral,
+    width: 32, height: 32, border: `3px solid ${COLORS.hairline}`, borderTopColor: COLORS.coral,
     borderRadius: '50%', animation: 'spin 0.7s linear infinite',
   },
 };

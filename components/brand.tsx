@@ -83,10 +83,11 @@ export function AppStoreBadge({ width = 220 }: { width?: number }) {
       style={{
         display: 'inline-flex',
         alignItems: 'center',
+        justifyContent: 'center',
         gap: 12,
         padding: '0 18px',
         height,
-        minWidth: width,
+        width,
         background: COLORS.appStoreBlack,
         color: '#fff',
         borderRadius: 12,
