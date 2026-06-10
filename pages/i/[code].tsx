@@ -34,6 +34,21 @@ function isIOS(): boolean {
   return iOSDevice || iPadOS;
 }
 
+// Attempt to open the app via a hidden iframe so the OS handles the custom
+// scheme without Safari showing "address is invalid" when the app isn't installed.
+function silentDeepLink(code: string): void {
+  try {
+    const iframe = document.createElement('iframe');
+    iframe.style.display = 'none';
+    iframe.src = `momento://invite/${code}`;
+    document.body.appendChild(iframe);
+    // Clean up the iframe after the OS has had time to act on it.
+    setTimeout(() => {
+      try { document.body.removeChild(iframe); } catch {}
+    }, 2000);
+  } catch {}
+}
+
 export default function InvitePage() {
   const router = useRouter();
   const code = (router.query.code as string | undefined) || '';
@@ -46,13 +61,9 @@ export default function InvitePage() {
 
   useEffect(() => {
     if (!router.isReady || !code || handoffTried.current) return;
+    if (!isIOS()) return;
     handoffTried.current = true;
-    if (isIOS()) {
-      const t = setTimeout(() => {
-        try { window.location.href = `momento://invite/${code}`; } catch { /* no-op */ }
-      }, 400);
-      return () => clearTimeout(t);
-    }
+    silentDeepLink(code);
   }, [router.isReady, code]);
 
   useEffect(() => {
@@ -141,7 +152,7 @@ function LoadingView({ ios, code }: { ios: boolean; code: string }) {
       <Spinner />
       <p style={s.body}>{ios ? 'Opening Momento…' : 'Loading your invite…'}</p>
       {ios && code ? (
-        <a href={`momento://invite/${code}`} style={s.textLink}>Tap here if Momento didn&apos;t open</a>
+        <button type="button" onClick={() => silentDeepLink(code)} style={s.textLink}>Tap here if Momento didn&apos;t open</button>
       ) : null}
     </div>
   );
@@ -196,7 +207,7 @@ function ReadyView({ info, code, ios, guestLoading, onContinueAsGuest }: {
       {/* SECONDARY: lighter options below */}
       <div style={s.secondaryStack}>
         {ios && (
-          <a href={`momento://invite/${code}`} style={s.textLink}>Already have Momento? Open the app</a>
+          <button type="button" onClick={() => silentDeepLink(code)} style={s.textLink}>Already have Momento? Open the app</button>
         )}
         {isGallery && (
           <button type="button" onClick={onContinueAsGuest} disabled={guestLoading} style={s.guestLink}>
